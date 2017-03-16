@@ -49,7 +49,7 @@ func (conn *Conn) ExecSp(spName string, params ...interface{}) (*SpResult, error
 		return nil, err
 	}
 	for i, spParam := range spParams {
-		//get datavalue for the suplied stored procedure parametar
+		//get datavalue for the suplied stored procedure parameter
 		var datavalue *C.BYTE
 		datalen := 0
 		if i < len(params) {
@@ -57,7 +57,7 @@ func (conn *Conn) ExecSp(spName string, params ...interface{}) (*SpResult, error
 			if param != nil {
 				data, sqlDatalen, err := typeToSqlBuf(int(spParam.UserTypeId), param, conn.freetdsVersionGte095)
 				if err != nil {
-					conn.Close() //close the connection
+					conn.close() //hard close the connection, if pooled don't return it.
 					return nil, err
 				}
 				if len(data) > 0 {

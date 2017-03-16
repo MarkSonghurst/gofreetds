@@ -417,25 +417,20 @@ func TestExecSpBadParameterDataType(t *testing.T) {
 	select @p1
 	return`)
 	assert.Nil(t, err)
-	
+
 	err = createProcedure(conn, "test_bad_parameter_data_type2", " as select 1 one; select 2 two; return 456")
 	assert.Nil(t, err)
 
-	
 	var intval int16
 	intval = 1
 	_, err = conn.ExecSp("test_bad_parameter_data_type", intval)
 	expectedError := "Could not convert int16 to string."
 	assert.Equal(t, expectedError, err.Error())
-	
+
 	_, err = conn.ExecSp("test_bad_parameter_data_type", "test")
-	assert.Nil(t, err)	
+	assert.Nil(t, err)
 
 	_, err = conn.ExecSp("test_bad_parameter_data_type2")
-	assert.Nil(t, err)	
-	
+	assert.Nil(t, err)
+
 }
-
-
-
-
