@@ -198,7 +198,7 @@ func (conn *Conn) close() {
 }
 
 // Remove a pooled connection from it's pool.
-func RemoveFromPool(conn *Conn) *Conn {
+func (conn *Conn) RemoveFromPool() *Conn {
 	if conn.belongsToPool != nil {
 		conn.belongsToPool.Remove(conn)
 	}
