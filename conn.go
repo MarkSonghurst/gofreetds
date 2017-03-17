@@ -277,15 +277,14 @@ func (conn *Conn) DbUse() error {
 
 func (conn *Conn) clearMessages() {
 	conn.messageMutex.Lock()
-	conn.errorsMutex.Lock()
-
 	conn.Error = ""
 	conn.errors = make(map[int]string)
-	conn.Message = ""
-	conn.messageNums = make(map[int]int)
+	conn.messageMutex.Unlock()
 
 	conn.errorsMutex.Lock()
-	conn.messageMutex.Unlock()
+	conn.Message = ""
+	conn.messageNums = make(map[int]int)
+	conn.errorsMutex.Unlock()
 }
 
 //Returns the number of occurances of a supplied FreeTDS message number.
