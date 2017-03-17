@@ -3,6 +3,7 @@ package freetds
 import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"sync"
 	"testing"
 	"time"
 )
@@ -167,4 +168,107 @@ func TestConnPoolDo(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(p.pool))
 	assert.Equal(t, 1, p.connCount)
+}
+
+func TestPoolRemove_TwoSizedPool(t *testing.T) {
+	p, _ := NewConnPool(testDbConnStr(2))
+	assert.Equal(t, p.connCount, 1)
+	c1, _ := p.Get()
+	c2, _ := p.Get()
+	// The pool has used 2 connections (c1, c2)
+	assert.Equal(t, p.connCount, 2)
+	// ...and has no unused connections in it.
+	assert.Equal(t, len(p.pool), 0)
+
+	// Remove c1 from the pool
+	p.Remove(c1)
+	assert.Nil(t, c1.belongsToPool)
+	// The pool has 1 used connection (c2)
+	assert.Equal(t, p.connCount, 1)
+	// ...and still has no unused connections in it.
+	assert.Equal(t, len(p.pool), 0)
+
+	// Trying to release the removed conn is a safe noop
+	p.Release(c1)
+	c1.Close()
+
+	// Get another connection from the pool.
+	// The pool will need to create this connection
+	// as it has no unused connections.
+	c3, _ := p.Get()
+
+	// The pool has used 2 connections (c2, c3)
+	assert.Equal(t, p.connCount, 2)
+	// ...and has no unused connections in it.
+	assert.Equal(t, len(p.pool), 0)
+
+	p.Release(c2)
+	p.Release(c3)
+}
+
+func TestPoolRemove_OneSizedPool(t *testing.T) {
+	p, _ := NewConnPool(testDbConnStr(1))
+	assert.Equal(t, p.connCount, 1)
+	c1, _ := p.Get()
+	// The pool has used 1 connection (c1)
+	assert.Equal(t, p.connCount, 1)
+	// ...and has no unused connections in it.
+	assert.Equal(t, len(p.pool), 0)
+
+	var wg sync.WaitGroup
+	chGotConn := make(chan *Conn)
+
+	// This goroutine attemps to Get another connection from the pool.
+	wg.Add(1)
+	go func() {
+		// The call to p.Get() will block until c1 is
+		// removed from the pool by the other goroutine.
+		c2, _ := p.Get()
+		assert.NotNil(t, c2)
+		chGotConn <- c2
+		wg.Done()
+	}()
+
+	wg.Add(1)
+	go func() {
+		// Sleep the goroutine for 2 seconds,
+		// keeping c1 in the pool.
+		time.Sleep(2 * time.Second)
+		// Now remove c1 from the pool.
+		// This will allow the call to p.Get()
+		// in the other goroutine to unblock.
+		// Note the use of the RemoveFromPool() func on the conn itself.
+		c1.RemoveFromPool().Close()
+		wg.Done()
+	}()
+
+	// Wait to receive c2, or timeout.
+	select {
+	case c2 := <-chGotConn:
+		// The pool has used 1 connection (c2)
+		assert.Equal(t, p.connCount, 1)
+		// ...and has no unused connections in it.
+		assert.Equal(t, len(p.pool), 0)
+		p.Release(c2)
+
+	case <-time.After(5 * time.Second):
+		assert.Fail(t, "timed out waiting for a pooled connection")
+	}
+
+	wg.Wait()
+	close(chGotConn)
+}
+
+func TestPoolRemove_OnConn(t *testing.T) {
+	p, _ := NewConnPool(testDbConnStr(2))
+	assert.Equal(t, p.connCount, 1)
+	c1, _ := p.Get()
+
+	c1.RemoveFromPool()
+	assert.Nil(t, c1.belongsToPool)
+	// Calling RemoveFromPool again is a safe noop
+	c1.RemoveFromPool()
+	// Trying to remove the already removed conn is a safe noop
+	p.Remove(c1)
+	c1.Close()
 }

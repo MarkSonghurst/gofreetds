@@ -495,3 +495,41 @@ func TestMessageNumbers(t *testing.T) {
 	assert.Equal(t, c.HasMessageNumber(msgnumOne), 2)
 	assert.Equal(t, c.HasMessageNumber(msgnumTwo), 1)
 }
+
+// Also run with "go test --race" for race condition checking.
+func TestErrors(t *testing.T) {
+	const errnumOne = 11111
+	const errnumOneMessage = "errnum-1, goroutine-"
+	const errnumTwo = 22222
+	const errnumTwoMessage = "errnum-2, goroutine-"
+
+	c := &Conn{
+		errors: make(map[int]string),
+	}
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		c.addError((errnumOneMessage + "alpha"), errnumOne)
+		wg.Done()
+	}()
+
+	wg.Add(1)
+	go func() {
+		c.addError((errnumOneMessage + "beta"), errnumOne)
+		c.addError((errnumTwoMessage + "beta"), errnumTwo)
+		wg.Done()
+	}()
+
+	wg.Wait()
+	// The most recent error using errnumOne will overwrite the previous error.
+	str, found := c.HasErrorNumber(errnumOne)
+	assert.True(t, found)
+	assert.Contains(t, str, errnumOneMessage)
+
+	// Only one error using errnumTwo was raised.
+	str, found = c.HasErrorNumber(errnumTwo)
+	assert.True(t, found)
+	assert.Contains(t, str, errnumTwoMessage)
+}
