@@ -162,6 +162,17 @@ func (p *ConnPool) addToPool(conn *Conn) {
 	}
 }
 
+// Remove a pooled connection from the pool,
+// forcing a new connection to take it's place.
+func (p *ConnPool) Remove(conn *Conn) {
+	if conn.belongsToPool != p {
+		return
+	}
+	p.connCount--
+	<-p.poolGuard //remove reservation
+	conn.belongsToPool = nil
+}
+
 //Release connection to the pool.
 func (p *ConnPool) Release(conn *Conn) {
 	if conn.belongsToPool != p {

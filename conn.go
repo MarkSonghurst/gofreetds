@@ -94,6 +94,9 @@ type Conn struct {
 	messageNums  map[int]int
 	messageMutex sync.RWMutex
 
+	errors      map[int]string
+	errorsMutex sync.RWMutex
+
 	currentResult   *Result
 	expiresFromPool time.Time
 	belongsToPool   *ConnPool
@@ -120,7 +123,12 @@ func (conn *Conn) addMessage(msg string, msgno int) {
 	conn.messageNums[msgno] = i + 1
 }
 
-func (conn *Conn) addError(err string) {
+func (conn *Conn) addError(err string, errno int) {
+	conn.errorsMutex.Lock()
+	defer conn.errorsMutex.Unlock()
+
+	conn.errors[errno] = err
+
 	if len(conn.Error) > 0 {
 		conn.Error += "\n"
 	}
@@ -141,6 +149,7 @@ func connectWithCredentials(crd *credentials) (*Conn, error) {
 		spParamsCache: NewParamsCache(),
 		credentials:   *crd,
 		messageNums:   make(map[int]int),
+		errors:        make(map[int]string),
 	}
 	err := conn.reconnect()
 	if err != nil {
@@ -186,6 +195,14 @@ func (conn *Conn) close() {
 		conn.dbproc = nil
 		conn.addr = 0
 	}
+}
+
+// Remove a pooled connection from it's pool.
+func RemoveFromPool(conn *Conn) *Conn {
+	if conn.belongsToPool != nil {
+		conn.belongsToPool.Remove(conn)
+	}
+	return conn
 }
 
 //ensure only one getDbProc at a time
@@ -260,11 +277,15 @@ func (conn *Conn) DbUse() error {
 
 func (conn *Conn) clearMessages() {
 	conn.messageMutex.Lock()
-	defer conn.messageMutex.Unlock()
+	conn.errorsMutex.Lock()
 
 	conn.Error = ""
+	conn.errors = make(map[int]string)
 	conn.Message = ""
 	conn.messageNums = make(map[int]int)
+
+	conn.errorsMutex.Lock()
+	conn.messageMutex.Unlock()
 }
 
 //Returns the number of occurances of a supplied FreeTDS message number.
@@ -274,6 +295,15 @@ func (conn *Conn) HasMessageNumber(msgno int) int {
 	conn.messageMutex.RUnlock()
 
 	return count
+}
+
+//Returns the error string for a supplied FreeTDS error number.
+//if the error has not occurred then an empty string and false is returned.
+func (conn *Conn) HasErrorNumber(errno int) (string, bool) {
+	conn.errorsMutex.RLock()
+	err, found := conn.errors[errno]
+	conn.errorsMutex.RUnlock()
+	return err, found
 }
 
 //Execute sql query.

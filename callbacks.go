@@ -36,7 +36,7 @@ func errHandler(dbprocAddr C.long, severity, dberr, oserr C.int, dberrstr, oserr
 
 	conn := getConnection(int64(dbprocAddr))
 	if conn != nil {
-		conn.addError(err)
+		conn.addError(err, int(dberr))
 	}
 
 	//fmt.Printf("err: %s", err)
