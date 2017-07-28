@@ -71,6 +71,27 @@ func TestExecSpInputParamsTypes(t *testing.T) {
 	assert.Equal(t, 6, p6)
 }
 
+func TestMoneyRead(t *testing.T) {
+	conn := ConnectToTestDb(t)
+	err := createProcedure(conn, "test_input_params_money", `
+       @p1 money as
+       select @p1`)
+	assert.Nil(t, err)
+
+	for _, f := range []float64{2.3, 2.6390, 4.85, 2.05} {
+		rst, err := conn.ExecSp("test_input_params_money", f)
+		assert.Nil(t, err)
+		var p1 float64
+		rst.Scan(&p1)
+		assert.Equal(t, f, p1)
+	}
+
+	// f64 := 2.6390
+	// fmt.Println(int64(f64*10000), int64(f64*100000)/10, int64((f64+0.000000000000001)*10000))
+	// f64 = 2.3
+	// fmt.Println(int64(f64*10000), int64(f64*100000)/10, int64((f64+0.000000000000001)*10000))
+}
+
 func TestExecSpInputParams2(t *testing.T) {
 	conn := ConnectToTestDb(t)
 	err := createProcedure(conn, "test_input_params2", `
