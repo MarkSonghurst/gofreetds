@@ -131,7 +131,7 @@ func (r *Result) ScanColumn(name string, dest interface{}) error {
 
 	err = convertAssign(dest, r.Rows[r.currentRow][i])
 	if err != nil {
-		return err
+		return fmt.Errorf("%s, column %s", err.Error(), name)
 	}
 
 	return nil
