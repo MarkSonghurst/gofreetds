@@ -97,7 +97,7 @@ func (r *Result) MustScan(cnt int, dest ...interface{}) error {
 		return err
 	}
 	if cnt != r.scanCount {
-		return errors.New(fmt.Sprintf("Worng scan count, expected %d, actual %d.", cnt, r.scanCount))
+		return errors.New(fmt.Sprintf("Wrong scan count, expected %d, actual %d.", cnt, r.scanCount))
 	}
 	return nil
 }
@@ -145,7 +145,7 @@ func (r *Result) scanStruct(s *reflect.Value) error {
 		if f.IsValid() {
 			if f.CanSet() {
 				if err := convertAssign(f.Addr().Interface(), r.Rows[r.currentRow][i]); err != nil {
-					return err
+					return fmt.Errorf("%s, column '%s'", err.Error(), col.Name)
 				}
 				r.scanCount++
 			}

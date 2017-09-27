@@ -89,7 +89,7 @@ func (r *SpResult) Next() bool {
 	return rst.Next()
 }
 
-//Sacaning output parameters of stored procedure
+//Scanning output parameters of stored procedure
 func (r *SpResult) ParamScan(values ...interface{}) error {
 	outputValues := make([]interface{}, len(r.outputParams))
 	for i := 0; i < len(r.outputParams); i++ {
